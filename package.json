@@ -1,0 +1,32 @@
+{
+  "name": "meteor-webrtc-p2pcall",
+  "version": "1.0.2",
+  "description": "",
+  "main": "dist/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://172.21.16.57/4474/meteor-webrtc-p2pcall"
+  },
+  "keywords": [
+    "meteor",
+    "webrtc",
+    "p2pcall"
+  ],
+  "dependencies": {
+    "@types/meteor": "^1.4.27",
+    "meteor-rxjs": "^0.4.14",
+    "rxjs": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/meteor-collection-hooks": "^0.8.6",
+    "@types/meteor-publish-composite": "0.0.37",
+    "typescript": "^4.5.4"
+  },
+  "author": "yuhj",
+  "license": "ISC",
+  "types": "dist/client/index.d.ts"
+}
