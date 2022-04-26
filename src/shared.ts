@@ -1,5 +1,3 @@
-import { MongoObservable } from "meteor-rxjs";
-
 export interface WebrtcSignal {
   _id?: string;
   callId: string;
@@ -10,7 +8,7 @@ export interface WebrtcSignal {
   candidate?: any;
   handled?: boolean;
 }
-export const WebrtcSignals = new MongoObservable.Collection<WebrtcSignal>(
+export const WebrtcSignals = new Mongo.Collection<WebrtcSignal>(
   "webrtc_signals"
 );
 export enum P2PCALL_STATUS {
@@ -18,23 +16,21 @@ export enum P2PCALL_STATUS {
   TALKING,
   CALLING,
 }
-export enum P2PCALL_TYPE {
-  VOICE,
-  VIDEO,
+export enum P2PCALL_KIND {
+  Audio,
+  Video,
 }
-
 export interface WebrtcP2pcall {
-  readonly _id?: string;
-  readonly callerId: string;
-  readonly calleeId: string;
-  readonly createAt: Date;
-  readonly startAt?: Date;
-  readonly endAt?: Date;
-  readonly endReason?: string;
-  readonly status: P2PCALL_STATUS;
-  readonly type: P2PCALL_TYPE;
+  _id: string;
+  callerId: string;
+  calleeId: string;
+  createAt: Date;
+  startAt?: Date;
+  endAt?: Date;
+  status: P2PCALL_STATUS;
+  kind: P2PCALL_KIND;
 }
-export const WebrtcP2pcalls = new MongoObservable.Collection<WebrtcP2pcall>(
+export const WebrtcP2pcalls = new Mongo.Collection<WebrtcP2pcall>(
   "webrtc_p2pcall"
 );
 
@@ -49,11 +45,4 @@ interface CloseEvent {
 interface StreamEvent {
   event: "stream" | "localstream";
   stream: MediaStream;
-}
-
-export interface WebrtcP2pCallInstance {
-  data: WebrtcP2pcall;
-  pickup(): WebrtcP2pCallInstance;
-  hangup(): void;
-  mute(): void;
 }

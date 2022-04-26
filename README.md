@@ -1,20 +1,8 @@
-# meteor-webrtc-p2pcall
-A package integrate with Meteor to fulfill webrtc p2pcall . Include signal exchange and connect setup
-
-## 一个快速集成p2p call的包，依赖于Meteor后台
-
-### server端使用，在main.ts引入
-```
-import 'meteor-webrtc-p2pcall'
-```
-
-### client端：
-```
-import { callWith,watchCalls,configStream,pickup,hangup,toggleMute, } from  'meteor-webrtc-p2pcall/src/client';
-
-callWith(`asds`) // userId  发起呼叫请求
-watchCalls().subscribe(calls=>{}) // call[] 监听呼入列表
-pickup(call) 
-hangup(call)
+>使用
 
 ```
+// install latest version
+npm install http://172.21.16.57/4474/meteor-webrtc-p2pcall/-/archive/20220111-v1.3/meteor-webrtc-p2pcall-20220111-v1.3.tar.gz --save
+```
+
+> 一个利用webrtc+meteor实现的包含了信令相关的p2p通话

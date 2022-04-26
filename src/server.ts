@@ -1,13 +1,12 @@
 import {
-  getAnother,
+  P2PCALL_KIND,
   P2PCALL_STATUS,
-  P2PCALL_TYPE,
   WebrtcP2pcall,
   WebrtcP2pcalls,
   WebrtcSignal,
   WebrtcSignals,
 } from "./shared";
-
+console.log(`p2pcall setup at server side `);
 WebrtcSignals.allow({
   insert(userId, doc: WebrtcSignal) {
     if (!userId || !doc.callId || !doc.type) return false;
@@ -17,11 +16,26 @@ WebrtcSignals.allow({
   update(userId, doc: WebrtcSignal) {
     return doc.target === userId || doc.userId === userId;
   },
-  remove(userId, doc: WebrtcSignal) {
-    return doc.target === userId || doc.userId === userId;
-  },
 });
-
+Meteor.publish("webrtc.p2pcall", function () {
+  if (!this.userId) return;
+  return WebrtcP2pcalls.find(
+    {
+      $or: [
+        {
+          calleeId: this.userId,
+        },
+        {
+          callerId: this.userId,
+        },
+      ],
+      status: {
+        $gt: P2PCALL_STATUS.ENDED,
+      },
+    }
+    // { fields: { calleeId: 1, callerId: 1, status: 1, _id: 1 } }
+  );
+});
 Meteor.publish("webrtc.p2psignals", function (callId: string) {
   if (!this.userId) return;
   return WebrtcSignals.find({
@@ -34,51 +48,45 @@ Meteor.publish("webrtc.p2psignals", function (callId: string) {
 });
 
 Meteor.methods({
-  "webrtc/p2pcall/create": async function (
-    uid: string,
-    type = P2PCALL_TYPE.VIDEO
-  ) {
+  "webrtc/p2pcall/create": async function (uid: string, kind: P2PCALL_KIND) {
+    if (!Meteor.users.findOne(uid) || !Meteor.users.findOne(this.userId)) {
+      throw new Meteor.Error(403, "不存在的用户或对方");
+    }
     const going = WebrtcP2pcalls.findOne({
-      $or: [
-        { calleeId: this.userId, callerId: uid },
-        { callerId: this.userId, calleeId: uid },
-      ],
-      status: { $gt: P2PCALL_STATUS.ENDED },
+      $or: [{ calleeId: this.userId }, { callerId: this.userId }],
+      status: { $ne: P2PCALL_STATUS.ENDED },
     });
-    if (going) throw new Meteor.Error(400, "还有未完成的通话");
-    const callId = WebrtcP2pcalls.collection.insert({
+    if (going) throw new Meteor.Error(400, "对方正在通话中");
+    const callId = WebrtcP2pcalls.insert({
       calleeId: uid,
       callerId: this.userId,
       createAt: new Date(),
       status: P2PCALL_STATUS.CALLING,
-      type,
+      kind,
     });
     if (callId) return callId;
   },
 });
 WebrtcP2pcalls.allow({
-  update(userId, doc) {
+  update(userId, doc: WebrtcP2pcall) {
     console.log(
       `allow check ${userId === doc.calleeId || userId === doc.callerId}`
     );
     return userId === doc.calleeId || userId === doc.callerId;
   },
 });
-WebrtcP2pcalls.collection.after.update((userId, doc) => {
+WebrtcP2pcalls.after.update((userId, doc) => {
   if (doc.status === P2PCALL_STATUS.ENDED) {
-    WebrtcSignals.remove({ callId: doc._id }).subscribe((num) => {
-      console.log(`remove signal of call ${doc._id}`);
-    });
+    WebrtcSignals.remove({ callId: doc._id });
   }
 });
-function clearDummyCall(userId: string) {
-  console.log(`try remove dummy of ${userId}`);
-  if (!userId) return;
+
+const endUsersCallout = Meteor.bindEnvironment(function (userId?: string) {
+  if (!userId) {
+    return;
+  }
   WebrtcP2pcalls.update(
-    {
-      $or: [{ callerId: userId }, { calleeId: userId }],
-      status: { $gt: P2PCALL_STATUS.ENDED },
-    },
+    { callerId: userId, status: { $ne: P2PCALL_STATUS.ENDED } },
     {
       $set: {
         endAt: new Date(),
@@ -88,48 +96,20 @@ function clearDummyCall(userId: string) {
     {
       multi: true,
     }
-  ).subscribe((n) => {
-    console.log(`end call for user ${n}`);
-  });
-}
+  );
+});
+
 Meteor.onConnection((con) => {
   con.onClose(() => {
-    console;
-    clearDummyCall((con as any).userId);
+    endUsersCallout((con as any).userId);
   });
 });
 
-Accounts.onLogin((data) => {
-  const { user, connection } = data;
-  clearDummyCall(user._id);
+Accounts.onLogin(({ user, connection }: any) => {
+  connection.userId = user._id;
 });
-const publishComposite = Package["reywood:publish-composite"].publishComposite;
-publishComposite("webrtc.p2pcall", function (): PublishCompositeConfig<any> {
-  const userId = this.userId;
-  if (!userId) return;
-  return {
-    find() {
-      return WebrtcP2pcalls.collection.find({
-        $or: [
-          {
-            calleeId: userId,
-          },
-          {
-            callerId: userId,
-          },
-        ],
-        status: {
-          $gt: P2PCALL_STATUS.ENDED,
-        },
-      });
-    },
-    children: [
-      {
-        find(doc: WebrtcP2pcall) {
-          const _id = getAnother(userId, doc);
-          return Meteor.users.find(_id, { fields: { profile: 1 } });
-        },
-      },
-    ],
-  };
+
+Accounts.onLogout(({ connection }: any) => {
+  endUsersCallout(connection.userId);
+  connection.userId = null;
 });
